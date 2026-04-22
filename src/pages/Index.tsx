@@ -6,7 +6,7 @@ import {
   Sparkles,
   MapPin,
   Phone,
-  Instagram as InstagramIcon,
+  AtSign,
   X,
   Send,
   Info,
