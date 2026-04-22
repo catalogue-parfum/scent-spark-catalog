@@ -6,10 +6,9 @@ import {
   Sparkles,
   MapPin,
   Phone,
-  Instagram,
+  Instagram as InstagramIcon,
   X,
   Send,
-  Loader2,
   Info,
 } from "lucide-react";
 import Logo from "@/components/Logo";
