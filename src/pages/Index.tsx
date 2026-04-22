@@ -331,7 +331,7 @@ const Index = () => {
               size={20}
               className="text-muted-foreground hover:text-gold cursor-pointer transition-colors"
             />
-            <Instagram
+            <AtSign
               size={20}
               className="text-muted-foreground hover:text-gold cursor-pointer transition-colors"
             />
