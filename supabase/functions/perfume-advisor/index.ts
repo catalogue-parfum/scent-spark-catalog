@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const type: "advisor" | "analyze" = body?.type ?? "advisor";
+    const lang: "fr" | "ar" = body?.lang === "ar" ? "ar" : "fr";
 
     let systemPrompt = "";
     let userPrompt = "";
@@ -59,8 +60,13 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      systemPrompt = "Tu es un sommelier de la parfumerie de luxe. Réponds en français, ton poétique et raffiné.";
-      userPrompt = `Décris brièvement les notes olfactives (tête, cœur, fond) du parfum "${name}" de la marque "${brand}". Sois poétique et luxueux. Limite-toi à 3-4 phrases.`;
+      if (lang === "ar") {
+        systemPrompt = "أنت خبير في عطور الفخامة. أجب باللغة العربية الفصحى بأسلوب شاعري راقٍ وفخم.";
+        userPrompt = `صف باختصار النوتات العطرية (نوتة القمة، نوتة القلب، نوتة الأساس) لعطر "${name}" من ماركة "${brand}". كن شاعرياً وفخماً. اكتفِ بـ 3-4 جمل فقط. أبقِ اسم العطر واسم الماركة كما هي بدون ترجمة.`;
+      } else {
+        systemPrompt = "Tu es un sommelier de la parfumerie de luxe. Réponds en français, ton poétique et raffiné.";
+        userPrompt = `Décris brièvement les notes olfactives (tête, cœur, fond) du parfum "${name}" de la marque "${brand}". Sois poétique et luxueux. Limite-toi à 3-4 phrases.`;
+      }
     } else {
       const query = String(body?.query ?? "").slice(0, 800);
       if (!query) {
@@ -69,7 +75,11 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      systemPrompt = `Tu es l'expert parfumeur de "Win Win Parfume". Tu conseilles le client EXCLUSIVEMENT parmi notre catalogue : ${JSON.stringify(CATALOG)}. Réponds en français avec élégance et luxe. Suggère 2 ou 3 parfums précis du catalogue en expliquant pourquoi ils correspondent. Utilise des listes à puces (-) et **gras** pour les noms de parfums.`;
+      if (lang === "ar") {
+        systemPrompt = `أنت خبير العطور في "Win Win Parfume". تنصح العميل حصرياً من ضمن كتالوجنا التالي: ${JSON.stringify(CATALOG)}. أجب باللغة العربية الفصحى بأناقة وفخامة. اقترح عطرين أو ثلاثة محددة من الكتالوج مع شرح سبب ملاءمتها. استخدم قوائم نقطية (-) و**خط عريض** لأسماء العطور. مهم جداً: أبقِ أسماء العطور وأسماء الماركات بالأحرف اللاتينية الأصلية كما هي في الكتالوج، بدون ترجمة.`;
+      } else {
+        systemPrompt = `Tu es l'expert parfumeur de "Win Win Parfume". Tu conseilles le client EXCLUSIVEMENT parmi notre catalogue : ${JSON.stringify(CATALOG)}. Réponds en français avec élégance et luxe. Suggère 2 ou 3 parfums précis du catalogue en expliquant pourquoi ils correspondent. Utilise des listes à puces (-) et **gras** pour les noms de parfums.`;
+      }
       userPrompt = query;
     }
 

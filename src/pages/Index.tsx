@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   User,
@@ -11,9 +11,11 @@ import {
   Send,
   Loader2,
   Info,
+  Languages,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { catalogData, type Gender } from "@/data/catalog";
+import { perfumeNameAr, ui, type Lang } from "@/data/translations";
 import { useToast } from "@/hooks/use-toast";
 
 const Logo = () => (
@@ -42,12 +44,28 @@ const Index = () => {
   const [aiResponse, setAiResponse] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [selectedPerfumeInfo, setSelectedPerfumeInfo] = useState<PerfumeInfo | null>(null);
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window === "undefined") return "fr";
+    return (localStorage.getItem("ww_lang") as Lang) || "fr";
+  });
+
+  const t = ui[lang];
+  const isRtl = lang === "ar";
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = isRtl ? "rtl" : "ltr";
+    localStorage.setItem("ww_lang", lang);
+  }, [lang, isRtl]);
 
   const callAdvisor = async (payload: Record<string, unknown>) => {
-    const { data, error } = await supabase.functions.invoke("perfume-advisor", { body: payload });
+    const { data, error } = await supabase.functions.invoke("perfume-advisor", {
+      body: { ...payload, lang },
+    });
     if (error) {
-      // Try to extract a meaningful message from the FunctionsHttpError
-      let message = "Service IA indisponible. Réessayez dans un instant.";
+      let message = lang === "ar"
+        ? "خدمة الذكاء الاصطناعي غير متوفرة. حاول بعد قليل."
+        : "Service IA indisponible. Réessayez dans un instant.";
       const ctx = (error as { context?: Response }).context;
       if (ctx && typeof ctx.json === "function") {
         try {
@@ -70,7 +88,7 @@ const Index = () => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur inconnue";
       setAiResponse("");
-      toast({ title: "Conseiller indisponible", description: msg, variant: "destructive" });
+      toast({ title: t.advisorUnavailable, description: msg, variant: "destructive" });
     } finally {
       setIsAiLoading(false);
     }
@@ -97,9 +115,11 @@ const Index = () => {
     const result: Record<string, string[]> = {};
     Object.keys(currentCategory).forEach((brand) => {
       if (selectedBrand === "Toutes" || selectedBrand === brand) {
-        const filteredPerfumes = currentCategory[brand].filter((p) =>
-          p.toLowerCase().includes(searchTerm.toLowerCase()),
-        );
+        const term = searchTerm.toLowerCase();
+        const filteredPerfumes = currentCategory[brand].filter((p) => {
+          const ar = perfumeNameAr[p] ?? "";
+          return p.toLowerCase().includes(term) || ar.includes(searchTerm);
+        });
         if (filteredPerfumes.length > 0) result[brand] = filteredPerfumes;
       }
     });
@@ -111,11 +131,25 @@ const Index = () => {
       {/* Bouton IA Flottant */}
       <button
         onClick={() => setIsAiModalOpen(true)}
-        aria-label="Ouvrir le conseiller IA"
-        className="fixed bottom-8 right-8 z-[60] bg-primary text-primary-foreground p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center gap-2 font-bold"
+        aria-label={t.advisorBtn}
+        className={`fixed bottom-8 z-[60] bg-primary text-primary-foreground p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center gap-2 font-bold ${
+          isRtl ? "left-8" : "right-8"
+        }`}
       >
         <Sparkles size={24} />
-        <span className="hidden md:inline">Conseiller IA ✨</span>
+        <span className="hidden md:inline">{t.advisorBtn}</span>
+      </button>
+
+      {/* Sélecteur de langue flottant */}
+      <button
+        onClick={() => setLang(lang === "fr" ? "ar" : "fr")}
+        aria-label="Changer la langue"
+        className={`fixed top-4 z-[60] bg-card border border-primary/40 text-primary px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-primary/10 transition-colors ${
+          isRtl ? "left-4" : "right-4"
+        }`}
+      >
+        <Languages size={14} />
+        {lang === "fr" ? "العربية" : "Français"}
       </button>
 
       {/* Header */}
@@ -130,7 +164,7 @@ const Index = () => {
                   activeTab === "Homme" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground"
                 }`}
               >
-                <User size={18} /> HOMME
+                <User size={18} /> {t.homme}
               </button>
               <button
                 onClick={() => { setActiveTab("Femme"); setSelectedBrand("Toutes"); }}
@@ -138,16 +172,18 @@ const Index = () => {
                   activeTab === "Femme" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground"
                 }`}
               >
-                <UserPlus size={18} /> FEMME
+                <UserPlus size={18} /> {t.femme}
               </button>
             </div>
             <div className="relative max-w-xl mx-auto">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={20} />
+              <Search className={`absolute top-1/2 -translate-y-1/2 text-primary ${isRtl ? "right-4" : "left-4"}`} size={20} />
               <input
                 type="text"
-                placeholder="Rechercher un parfum ou une marque..."
-                aria-label="Rechercher un parfum ou une marque"
-                className="w-full bg-card border border-border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-primary transition-colors text-foreground"
+                placeholder={t.searchPlaceholder}
+                aria-label={t.searchPlaceholder}
+                className={`w-full bg-card border border-border rounded-xl py-3 focus:outline-none focus:border-primary transition-colors text-foreground ${
+                  isRtl ? "pr-12 pl-4" : "pl-12 pr-4"
+                }`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -159,25 +195,28 @@ const Index = () => {
       {/* Filtres Marques */}
       <div className="bg-card/50 border-b border-border overflow-x-auto whitespace-nowrap py-4 px-4 scrollbar-hide">
         <div className="max-w-6xl mx-auto flex gap-3">
-          {brands.map((brand) => (
-            <button
-              key={brand}
-              onClick={() => setSelectedBrand(brand)}
-              className={`px-5 py-1.5 rounded-full text-xs tracking-widest border transition-all ${
-                selectedBrand === brand
-                  ? "bg-primary/10 border-primary text-primary"
-                  : "border-border text-muted-foreground hover:border-muted-foreground"
-              }`}
-            >
-              {brand.toUpperCase()}
-            </button>
-          ))}
+          {brands.map((brand) => {
+            const label = brand === "Toutes" ? t.all.toUpperCase() : brand.toUpperCase();
+            return (
+              <button
+                key={brand}
+                onClick={() => setSelectedBrand(brand)}
+                className={`px-5 py-1.5 rounded-full text-xs tracking-widest border transition-all ${
+                  selectedBrand === brand
+                    ? "bg-primary/10 border-primary text-primary"
+                    : "border-border text-muted-foreground hover:border-muted-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Catalogue Grid */}
       <main className="max-w-6xl mx-auto px-4 py-10">
-        <h2 className="sr-only">Catalogue de parfums Win Win</h2>
+        <h2 className="sr-only">Catalogue Win Win Parfume</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {Object.keys(filteredData).map((brand) => (
             <article
@@ -185,31 +224,41 @@ const Index = () => {
               className="bg-card border border-border rounded-2xl p-6 hover:border-primary/30 transition-all"
             >
               <div className="flex justify-between items-center mb-6 border-b border-primary/20 pb-3">
-                <h3 className="text-primary font-bold tracking-widest text-lg">{brand}</h3>
+                <h3 className="text-primary font-bold tracking-widest text-lg" dir="ltr">{brand}</h3>
                 <Sparkles size={16} className="text-primary opacity-50" />
               </div>
               <ul className="space-y-3">
-                {filteredData[brand].map((perfume, idx) => (
-                  <li key={idx} className="flex items-center justify-between group/item">
-                    <span className="text-foreground/80 group-hover/item:text-foreground transition-colors">
-                      {perfume}
-                    </span>
-                    <button
-                      onClick={() => analyzePerfume(perfume, brand)}
-                      className="p-1 hover:bg-primary/10 rounded-full transition-colors text-primary"
-                      title="Analyse olfactive ✨"
-                      aria-label={`Analyse olfactive de ${perfume}`}
-                    >
-                      <Info size={16} />
-                    </button>
-                  </li>
-                ))}
+                {filteredData[brand].map((perfume, idx) => {
+                  const ar = perfumeNameAr[perfume];
+                  return (
+                    <li key={idx} className="flex items-center justify-between group/item gap-2">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-foreground/80 group-hover/item:text-foreground transition-colors" dir="ltr">
+                          {perfume}
+                        </span>
+                        {ar && (
+                          <span className="text-xs text-primary/70 font-serif" dir="rtl">
+                            {ar}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => analyzePerfume(perfume, brand)}
+                        className="p-1 hover:bg-primary/10 rounded-full transition-colors text-primary shrink-0"
+                        title={t.olfactoryAnalysis}
+                        aria-label={`${t.olfactoryAnalysis} — ${perfume}`}
+                      >
+                        <Info size={16} />
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </article>
           ))}
           {Object.keys(filteredData).length === 0 && (
             <p className="text-muted-foreground italic col-span-full text-center py-10">
-              Aucun parfum ne correspond à votre recherche.
+              {t.noResults}
             </p>
           )}
         </div>
@@ -221,8 +270,8 @@ const Index = () => {
           <div className="bg-card border border-primary/30 rounded-2xl p-6 max-w-md w-full relative">
             <button
               onClick={() => setSelectedPerfumeInfo(null)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-              aria-label="Fermer"
+              className={`absolute top-4 text-muted-foreground hover:text-foreground ${isRtl ? "left-4" : "right-4"}`}
+              aria-label={t.close}
             >
               <X size={20} />
             </button>
@@ -231,8 +280,11 @@ const Index = () => {
                 <Sparkles size={20} />
               </div>
               <div>
-                <h3 className="font-bold text-primary">{selectedPerfumeInfo.name}</h3>
-                <p className="text-xs text-muted-foreground tracking-widest uppercase">
+                <h3 className="font-bold text-primary" dir="ltr">{selectedPerfumeInfo.name}</h3>
+                {perfumeNameAr[selectedPerfumeInfo.name] && (
+                  <p className="text-xs text-primary/70" dir="rtl">{perfumeNameAr[selectedPerfumeInfo.name]}</p>
+                )}
+                <p className="text-xs text-muted-foreground tracking-widest uppercase" dir="ltr">
                   {selectedPerfumeInfo.brand}
                 </p>
               </div>
@@ -240,7 +292,7 @@ const Index = () => {
             {selectedPerfumeInfo.loading ? (
               <div className="flex flex-col items-center py-8 gap-4">
                 <Loader2 className="animate-spin text-primary" size={32} />
-                <p className="text-sm italic text-muted-foreground">Analyse de l'essence en cours...</p>
+                <p className="text-sm italic text-muted-foreground">{t.analyzing}</p>
               </div>
             ) : (
               <div className="text-foreground/80 text-sm leading-relaxed whitespace-pre-wrap italic font-serif">
@@ -251,7 +303,7 @@ const Index = () => {
               onClick={() => setSelectedPerfumeInfo(null)}
               className="w-full mt-6 bg-primary/10 text-primary border border-primary/30 py-2 rounded-xl text-sm font-bold hover:bg-primary/20 transition-colors"
             >
-              FERMER
+              {t.close}
             </button>
           </div>
         </div>
@@ -270,14 +322,14 @@ const Index = () => {
                   <Sparkles size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-foreground">Votre Conseiller Privé ✨</h2>
-                  <p className="text-xs text-primary tracking-widest">PROPULSÉ PAR L'IA</p>
+                  <h2 className="text-xl font-bold text-foreground">{t.advisorTitle}</h2>
+                  <p className="text-xs text-primary tracking-widest">{t.poweredBy}</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsAiModalOpen(false)}
                 className="text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Fermer le conseiller"
+                aria-label={t.close}
               >
                 <X size={24} />
               </button>
@@ -288,14 +340,10 @@ const Index = () => {
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-10">
                   <div className="text-4xl">🎩</div>
                   <p className="text-muted-foreground text-sm italic">
-                    "Décrivez-moi vos préférences, une occasion spéciale ou une ambiance, et je trouverai votre signature olfactive idéale."
+                    {t.intro}
                   </p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    {[
-                      "Je cherche un parfum frais pour l'été",
-                      "Quelque chose d'intense pour une soirée",
-                      "Un parfum boisé et élégant",
-                    ].map((s) => (
+                    {t.suggestions.map((s) => (
                       <button
                         key={s}
                         onClick={() => setAiQuery(s)}
@@ -310,7 +358,7 @@ const Index = () => {
                 <div className="h-full flex flex-col items-center justify-center space-y-4">
                   <Loader2 className="animate-spin text-primary" size={40} />
                   <p className="text-primary animate-pulse font-serif italic">
-                    Je parcours notre bibliothèque de senteurs...
+                    {t.loading}
                   </p>
                 </div>
               ) : (
@@ -330,8 +378,8 @@ const Index = () => {
               <div className="flex gap-3">
                 <input
                   type="text"
-                  placeholder="Posez votre question à l'expert..."
-                  aria-label="Votre question au conseiller"
+                  placeholder={t.inputPlaceholder}
+                  aria-label={t.inputPlaceholder}
                   className="flex-1 bg-card border border-border rounded-2xl py-3 px-4 focus:outline-none focus:border-primary transition-all text-foreground"
                   value={aiQuery}
                   onChange={(e) => setAiQuery(e.target.value)}
@@ -340,10 +388,10 @@ const Index = () => {
                 <button
                   onClick={handleAiConsultation}
                   disabled={isAiLoading || !aiQuery.trim()}
-                  aria-label="Envoyer"
+                  aria-label="Send"
                   className="bg-primary text-primary-foreground p-3 rounded-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
                 >
-                  <Send size={24} />
+                  <Send size={24} className={isRtl ? "rotate-180" : ""} />
                 </button>
               </div>
             </div>
@@ -355,15 +403,15 @@ const Index = () => {
       <footer className="bg-background border-t border-primary/20 mt-20 py-12 px-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="text-center md:text-left space-y-2">
-            <h4 className="text-primary font-bold tracking-widest">WIN WIN PARFUME</h4>
-            <p className="text-sm text-muted-foreground">L'élégance augmentée par l'IA.</p>
+            <h4 className="text-primary font-bold tracking-widest" dir="ltr">WIN WIN PARFUME</h4>
+            <p className="text-sm text-muted-foreground">{t.footerTagline}</p>
           </div>
           <div className="flex gap-8">
             <Phone size={20} className="text-muted-foreground hover:text-primary cursor-pointer" />
             <MapPin size={20} className="text-muted-foreground hover:text-primary cursor-pointer" />
             <Instagram size={20} className="text-muted-foreground hover:text-primary cursor-pointer" />
           </div>
-          <div className="text-[10px] text-muted-foreground tracking-widest">© 2024 WIN WIN PARFUME</div>
+          <div className="text-[10px] text-muted-foreground tracking-widest" dir="ltr">© 2024 WIN WIN PARFUME</div>
         </div>
       </footer>
     </div>
